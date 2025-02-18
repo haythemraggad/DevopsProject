@@ -1,55 +1,144 @@
 pipeline {
     agent any
-environment {
-registryCredentials = "nexus"
-registry = "172.28.240.88:8083"
-}
+    
+    environment {
+        registryCredentials = "nexus"
+        registry = "172.28.240.88:8083"
+        imageVersion = "6.0"
+    }
+    
     stages {
         stage('Install dependencies') {
             steps {
                 sh 'npm install'
             }
+            post {
+                success {
+                    echo 'Dependencies installed successfully'
+                }
+                failure {
+                    error 'Failed to install dependencies'
+                }
+            }
         }
+        
         stage('Unit Test') {
             steps {
                 sh 'npm test'
             }
+            post {
+                success {
+                    echo 'Tests completed successfully'
+                }
+                failure {
+                    error 'Test execution failed'
+                }
+            }
         }
+        
         stage('Build application') {
             steps {
                 sh 'npm run build-dev'
             }
+            post {
+                success {
+                    echo 'Application built successfully'
+                }
+                failure {
+                    error 'Build failed'
+                }
+            }
         }
-       stage('Building images (node and mongo)') { 
-             steps{ 
-                  script {
-                            sh('/usr/local/bin/docker-compose build')
-                          }
-                  }
-             }
+        
+        stage('Building images (node and mongo)') { 
+            steps { 
+                script {
+                    // Build images using docker-compose
+                    sh '/usr/local/bin/docker-compose build'
+                    
+                    // Tag the image with the correct registry
+                    sh "docker tag 192.168.33.10:8083/nodemongoapp:${imageVersion} ${registry}/nodemongoapp:${imageVersion}"
+                }
+            }
+            post {
+                success {
+                    echo 'Docker images built successfully'
+                }
+                failure {
+                    error 'Docker build failed'
+                }
+            }
+        }
 
-// Uploading Docker images into Nexus Registry
-stage('Deploy to Nexus') {
-steps{
-script {
-docker.withRegistry("http://"+registry,
-registryCredentials ) {
-sh('docker push $registry/nodemongoapp:5.0 ')
-}
-}
-}
-}
+        stage('Deploy to Nexus') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'nexus', 
+                                                    usernameVariable: 'USERNAME', 
+                                                    passwordVariable: 'PASSWORD')]) {
+                        sh """
+                            echo \$PASSWORD | docker login -u \$USERNAME --password-stdin http://\${registry}
+                            docker push \${registry}/nodemongoapp:\${imageVersion}
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    echo 'Successfully pushed to Nexus registry'
+                }
+                failure {
+                    error 'Failed to push to Nexus registry'
+                }
+            }
+        }
 
-stage('SonarQube Analysis') {
-steps{
-script {
-def scannerHome = tool 'scanner'
-withSonarQubeEnv {
-sh "${scannerHome}/bin/sonar-scanner"
-}
-}
-}
-}
-
-}
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'scanner'
+                    withSonarQubeEnv('sonarqube') {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=node-app \
+                            -Dsonar.projectName=node-app \
+                            -Dsonar.projectVersion=1.0 \
+                            -Dsonar.sources=. \
+                            -Dsonar.exclusions=node_modules/**
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    echo 'SonarQube Analysis completed successfully'
+                }
+                failure {
+                    error 'SonarQube Analysis failed'
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo 'Pipeline completed successfully'
+        }
+        failure {
+            echo 'Pipeline failed'
+        }
+        always {
+            // Clean up Docker images to prevent disk space issues
+            script {
+                try {
+                    sh """
+                        docker rmi ${registry}/nodemongoapp:${imageVersion} || true
+                        docker rmi 192.168.33.10:8083/nodemongoapp:${imageVersion} || true
+                    """
+                } catch (Exception e) {
+                    echo "Cleanup failed but the pipeline will continue: ${e.message}"
+                }
+            }
+        }
+    }
 }
