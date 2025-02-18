@@ -106,8 +106,6 @@ pipeline {
                         sh "trivy image ${registry}/nodemongoapp:${imageVersion} --severity HIGH,CRITICAL"
                     } catch (Exception e) {
                         echo "Warning: Image scan found vulnerabilities: ${e.message}"
-                        // Uncomment the next line if you want to fail the pipeline on HIGH/CRITICAL vulnerabilities
-                        // throw e
                     }
                 }
             }
@@ -121,11 +119,11 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'nexus', 
-                                                    usernameVariable: 'USERNAME', 
-                                                    passwordVariable: 'PASSWORD')]) {
+                                                    usernameVariable: 'admin', 
+                                                    passwordVariable: '1709b6ad-4f9c-4425-bb2a-0f9346c4e668')]) {
                         sh """
                             # Check if Nexus registry is accessible
-                            if ! curl -f http://${registry}/v2/_catalog; then
+                            if ! curl -f -s "http://${registry}/v2/_catalog"; then
                                 echo "Nexus registry is not accessible"
                                 exit 1
                             fi
@@ -179,14 +177,11 @@ pipeline {
     post {
         success {
             echo 'Pipeline completed successfully'
-            // You could add notifications here (email, Slack, etc.)
         }
         failure {
             echo 'Pipeline failed'
-            // You could add failure notifications here
         }
         always {
-            // Clean up Docker images to prevent disk space issues
             script {
                 try {
                     sh """
