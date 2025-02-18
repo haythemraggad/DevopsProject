@@ -23,6 +23,9 @@ pipeline {
                           }
                   }
              }
+       environment {
+               registryCredentials = "nexus" registry = "192.168.33.10:8083" 
+                   }
 
 stage('SonarQube Analysis') {
 steps{
