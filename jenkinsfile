@@ -63,7 +63,7 @@ pipeline {
 
         stage('Push to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: NEXUS_CREDENTIALS, usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: NEXUS_CREDENTIALS, usernameVariable: 'admin', 1709b6ad-4f9c-4425-bb2a-0f9346c4e668: 'NEXUS_PASS')]) {
                     sh '''
                         docker login -u $NEXUS_USER -p $NEXUS_PASS $NEXUS_URL
                         docker tag $DOCKER_IMAGE $NEXUS_URL/nodemongoapp:6.0
