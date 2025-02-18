@@ -28,14 +28,5 @@ sh "${scannerHome}/bin/sonar-scanner"
 }
 }
 
-// Building Docker images
-stage('Building images (node and mongo)') {
-steps{
-script {
-sh('docker-compose build')
-}
-}
-}
-
 }
 }
