@@ -1,9 +1,9 @@
 pipeline {
     agent any
-    environment {
-        registryCredentials = "nexus"
-        registry = "192.168.33.10:8083"
-    }
+environment {
+registryCredentials = "nexus"
+registry = "192.168.33.10:8083"
+}
     stages {
         stage('Install dependencies') {
             steps {
@@ -20,32 +20,36 @@ pipeline {
                 sh 'npm run build-dev'
             }
         }
-        stage('Building images (node and mongo)') {
-            steps {
-                script {
-                    sh 'docker-compose build'
-                }
-            }
-        }
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    def scannerHome = tool 'scanner'
-                    withSonarQubeEnv {
-                        sh "${scannerHome}/bin/sonar-scanner"
-                    }
-                }
-            }
-        }
-        stage('Deploy to Nexus') {
-            steps {
-                script {
-                    docker.withRegistry("http://${registry}", registryCredentials) {
-                        sh 'docker push $registry/nodemongoapp:5.0'
-                    }
-                }
-            }
-        }
-stage('Run application ') { steps{ script { docker.withRegistry("http://"+registry, registryCredentials ) { sh('docker pull $registry/nodemongoapp:6.0 ') sh('docker-compose up -d ') } } } }
-    }
+       stage('Building images (node and mongo)') { 
+             steps{ 
+                  script {
+                            sh('/usr/local/bin/docker-compose build')
+                          }
+                  }
+             }
+
+// Uploading Docker images into Nexus Registry
+stage('Deploy to Nexus') {
+steps{
+script {
+docker.withRegistry("http://"+registry,
+registryCredentials ) {
+sh('docker push $registry/nodemongoapp:5.0 ')
+}
+}
+}
+}
+
+stage('SonarQube Analysis') {
+steps{
+script {
+def scannerHome = tool 'scanner'
+withSonarQubeEnv {
+sh "${scannerHome}/bin/sonar-scanner"
+}
+}
+}
+}
+
+}
 }
